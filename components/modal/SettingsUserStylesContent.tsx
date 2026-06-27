@@ -1,0 +1,920 @@
+import { useEffect, useMemo, useState } from 'react'
+import { Alert, Keyboard, Platform, Pressable, ScrollView, Switch, TextInput, View, useWindowDimensions } from 'react-native'
+import MaterialIcons from '@expo/vector-icons/MaterialIcons'
+import * as Clipboard from 'expo-clipboard'
+import { getDocumentAsync } from 'expo-document-picker'
+import { useValue } from '@legendapp/state/react'
+import { t } from 'i18next'
+import { BaseCenterModal } from './BaseCenterModal'
+import { NouText } from '../NouText'
+import { clsx, isWeb, nIf } from '@/lib/utils'
+import {
+  buildUserScriptExecutionSource,
+  builtinUserStyleDefinitionById,
+  builtinUserStyleDefinitions,
+  parseUserscriptMetadata,
+  stripUserscriptMetadata,
+  type BuiltinUserStyleId,
+  type CustomUserScript,
+  type CustomUserStyle,
+} from '@/lib/user-styles'
+import { userStyles$ } from '@/states/user-styles'
+import { ui$ } from '@/states/ui'
+import { showToast } from '@/lib/toast'
+import { NouButton } from '../button/NouButton'
+import { MaterialButton } from '../button/IconButtons'
+
+const surfaceCls =
+  'overflow-hidden rounded-[24px] border border-zinc-300 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/70'
+const subheaderCls = 'mb-3 text-xs uppercase tracking-[0.18em] text-zinc-600 dark:text-gray-500'
+const rowCls = 'px-4 py-4'
+const rowBorderCls = 'border-b border-zinc-300 dark:border-zinc-800'
+const textInputCls =
+  'rounded-2xl border border-zinc-300 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-950 px-4 py-4 text-zinc-900 dark:text-white'
+
+type DraftState = {
+  id: string | null
+  name: string
+  enabled: boolean
+  css: string
+}
+
+const cleanCss = (value: string) => {
+  const lines = value
+    .replace(/\/\*[\s\S]*?\*\/|([^:]|^)\/\/.*$/gm, '')
+    .split('\n')
+    .filter((line) => line.trim())
+
+  if (lines.length === 0) {
+    return ''
+  }
+
+  const firstLineIndent = lines[0].match(/^\s*/)?.[0].length || 0
+  return lines.map((line) => line.slice(firstLineIndent)).join('\n')
+}
+
+const createDraft = (style?: CustomUserStyle | null): DraftState => {
+  if (!style) {
+    return {
+      id: null,
+      name: '',
+      enabled: true,
+      css: '',
+    }
+  }
+
+  return {
+    id: style.id,
+    name: style.name,
+    enabled: style.enabled,
+    css: style.css,
+  }
+}
+
+async function readPickedCss() {
+  const result = await getDocumentAsync({
+    type: ['text/css', 'text/plain'],
+    copyToCacheDirectory: true,
+    multiple: false,
+  })
+  if (result.canceled || !result.assets?.[0]) {
+    return ''
+  }
+
+  const response = await fetch(result.assets[0].uri)
+  return response.text()
+}
+
+type ScriptDraftState = {
+  id: string | null
+  name: string
+  enabled: boolean
+  pinToHeader: boolean
+  js: string
+}
+
+const createScriptDraft = (script?: CustomUserScript | null): ScriptDraftState => {
+  if (!script) {
+    return {
+      id: null,
+      name: '',
+      enabled: true,
+      pinToHeader: false,
+      js: '',
+    }
+  }
+
+  return {
+    id: script.id,
+    name: script.name,
+    enabled: script.enabled,
+    pinToHeader: script.pinToHeader,
+    js: script.js,
+  }
+}
+
+async function readPickedScript() {
+  const result = await getDocumentAsync({
+    type: ['text/javascript', 'application/javascript', 'text/plain'],
+    copyToCacheDirectory: true,
+    multiple: false,
+  })
+  if (result.canceled || !result.assets?.[0]) {
+    return ''
+  }
+
+  const response = await fetch(result.assets[0].uri)
+  return response.text()
+}
+
+export const SettingsUserStylesContent = () => {
+  const customStyles = useValue(userStyles$.customStyles)
+  const customScripts = useValue(userStyles$.customScripts).filter((script): script is CustomUserScript => Boolean(script))
+  const builtins = useValue(userStyles$.builtins)
+  const [draft, setDraft] = useState<DraftState | null>(null)
+  const [scriptDraft, setScriptDraft] = useState<ScriptDraftState | null>(null)
+  const [previewBuiltinId, setPreviewBuiltinId] = useState<BuiltinUserStyleId | null>(null)
+  const [keyboardHeight, setKeyboardHeight] = useState(0)
+  const { height: windowHeight } = useWindowDimensions()
+  const previewDefinition = previewBuiltinId ? builtinUserStyleDefinitionById[previewBuiltinId] : null
+  const hasStyles = customStyles.length > 0
+  const hasScripts = customScripts.length > 0
+  const sortedBuiltins = useMemo(() => builtinUserStyleDefinitions, [])
+  const scriptEditorHeight =
+    keyboardHeight > 0 && Platform.OS !== 'web'
+      ? Math.max(140, Math.min(300, windowHeight - keyboardHeight - 260))
+      : 300
+  const scriptKeyboardAvoidingClassName = keyboardHeight > 0 && Platform.OS !== 'web' ? 'w-full items-center' : undefined
+
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      return
+    }
+
+    const showSub = Keyboard.addListener('keyboardDidShow', (event) => setKeyboardHeight(event.endCoordinates.height))
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => setKeyboardHeight(0))
+
+    return () => {
+      showSub.remove()
+      hideSub.remove()
+    }
+  }, [])
+
+  const closeDraft = () => setDraft(null)
+  const closeScriptDraft = () => setScriptDraft(null)
+
+  const onImportScript = async () => {
+    try {
+      const source = await readPickedScript()
+      if (!source) {
+        return
+      }
+      const metadata = parseUserscriptMetadata(source)
+      const js = stripUserscriptMetadata(source) || source
+      setScriptDraft((value) =>
+        value ? { ...value, name: value.name || metadata.name, js } : value,
+      )
+    } catch (error) {
+      console.warn('[SettingsUserStylesContent] failed to import script', error)
+      showToast(t('settings.userStyles.scripts.importFailed'))
+    }
+  }
+
+  const onRunScript = () => {
+    if (!scriptDraft?.js.trim()) {
+      showToast(t('settings.userStyles.scripts.validation.js'))
+      return
+    }
+
+    const webview = ui$.webview.get()
+    if (!webview) {
+      showToast(t('settings.userStyles.scripts.noActiveTab'))
+      return
+    }
+
+    const wrapped = buildUserScriptExecutionSource(scriptDraft)
+    Promise.resolve(webview.executeJavaScript(wrapped))
+      .then(() => showToast(t('settings.userStyles.scripts.runComplete')))
+      .catch(() => showToast(t('settings.userStyles.scripts.runFailed')))
+  }
+
+  const onSaveScript = () => {
+    if (!scriptDraft) {
+      return
+    }
+
+    if (!scriptDraft.js.trim()) {
+      showToast(t('settings.userStyles.scripts.validation.js'))
+      return
+    }
+
+    const input = {
+      name: scriptDraft.name.trim(),
+      enabled: scriptDraft.enabled,
+      pinToHeader: scriptDraft.pinToHeader,
+      js: scriptDraft.js,
+    }
+
+    if (scriptDraft.id) {
+      userStyles$.updateCustomScript(scriptDraft.id, input)
+    } else {
+      userStyles$.addCustomScript(input)
+    }
+
+    closeScriptDraft()
+  }
+
+  const onImportCss = async () => {
+    try {
+      const css = await readPickedCss()
+      if (!css) {
+        return
+      }
+      setDraft((value) => (value ? { ...value, css } : value))
+    } catch (error) {
+      console.warn('[SettingsUserStylesContent] failed to import css', error)
+      showToast(t('settings.userStyles.importFailed'))
+    }
+  }
+
+  const onCopyBuiltinCss = async () => {
+    if (!previewDefinition) {
+      return
+    }
+
+    try {
+      await Clipboard.setStringAsync(previewDefinition.css.trim())
+      showToast(t('settings.userStyles.cssCopied'))
+    } catch (error) {
+      console.warn('[SettingsUserStylesContent] failed to copy css', error)
+      showToast(t('settings.userStyles.copyFailed'))
+    }
+  }
+
+  const onSave = () => {
+    if (!draft) {
+      return
+    }
+
+    if (!draft.css.trim()) {
+      showToast(t('settings.userStyles.validation.css'))
+      return
+    }
+
+    const input = {
+      name: draft.name.trim(),
+      enabled: draft.enabled,
+      css: draft.css,
+    }
+
+    if (draft.id) {
+      userStyles$.updateCustomStyle(draft.id, input)
+    } else {
+      userStyles$.addCustomStyle(input)
+    }
+
+    closeDraft()
+  }
+
+  return (
+    <View className="pb-4">
+      {isWeb && (draft || scriptDraft) ? null : (
+        <>
+          <View>
+            <NouText className={subheaderCls}>{t('settings.userStyles.builtin.label')}</NouText>
+            <View className={surfaceCls}>
+              {sortedBuiltins.map((definition, index) => (
+                <Pressable
+                  key={definition.id}
+                  onPress={() => setPreviewBuiltinId(definition.id)}
+                  className={clsx(
+                    rowCls,
+                    'flex-row items-center justify-between active:bg-zinc-200/50 dark:active:bg-zinc-800/50',
+                    index !== sortedBuiltins.length - 1 && rowBorderCls,
+                  )}
+                >
+                  <View className="flex-1 pr-4">
+                    <NouText className="font-medium" numberOfLines={1}>
+                      {t(definition.labelKey)}
+                    </NouText>
+                  </View>
+                  <Switch
+                    value={builtins[definition.id]?.enabled ?? true}
+                    onValueChange={() => userStyles$.toggleBuiltin(definition.id)}
+                    trackColor={{ false: '#27272a', true: '#3730a3' }}
+                    thumbColor={(builtins[definition.id]?.enabled ?? true) ? '#818cf8' : '#71717a'}
+                    {...Platform.select({
+                      web: {
+                        activeThumbColor: '#818cf8',
+                      },
+                      ios: {
+                        style: { transform: [{ scale: 0.8 }] },
+                      },
+                    })}
+                  />
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
+      <View className="mt-10">
+        <View className="mb-3 flex-row items-center justify-between">
+          <NouText className={subheaderCls}>{t('settings.userStyles.custom.label')}</NouText>
+          <Pressable
+            onPress={() => setDraft(createDraft())}
+            className="flex-row items-center gap-1 rounded-full bg-indigo-600/10 px-3 py-1.5 active:bg-indigo-600/20"
+          >
+            <MaterialIcons name="add" color="#818cf8" size={18} />
+            <NouText className="text-xs font-semibold text-indigo-400">{t('settings.userStyles.add')}</NouText>
+          </Pressable>
+        </View>
+        <View className={surfaceCls}>
+          {!hasStyles ? (
+            <View className="items-center justify-center px-6 py-10">
+              <View className="h-12 w-12 items-center justify-center rounded-2xl bg-zinc-200 dark:bg-zinc-950">
+                <MaterialIcons name="brush" color="#3f3f46" size={24} />
+              </View>
+              <NouText className="mt-4 text-center text-sm leading-6 text-zinc-600 dark:text-zinc-500">
+                {t('settings.userStyles.custom.empty')}
+              </NouText>
+            </View>
+          ) : null}
+          {customStyles.map((style, index) => (
+            <Pressable
+              key={style.id}
+              onPress={() => setDraft(createDraft(style))}
+              className={clsx(
+                rowCls,
+                'flex-row items-center justify-between active:bg-zinc-200/50 dark:active:bg-zinc-800/50',
+                index !== customStyles.length - 1 && rowBorderCls,
+              )}
+            >
+              <View className="flex-1 pr-4">
+                <NouText className={clsx('font-medium', !style.enabled && 'text-zinc-500')} numberOfLines={1}>
+                  {style.name}
+                </NouText>
+              </View>
+              <Switch
+                value={style.enabled}
+                onValueChange={() => userStyles$.toggleCustomStyle(style.id)}
+                trackColor={{ false: '#27272a', true: '#3730a3' }}
+                thumbColor={style.enabled ? '#818cf8' : '#71717a'}
+                {...Platform.select({
+                  web: {
+                    activeThumbColor: '#818cf8',
+                  },
+                  ios: {
+                    style: { transform: [{ scale: 0.8 }] },
+                  },
+                })}
+              />
+            </Pressable>
+          ))}
+        </View>
+      </View>
+
+          <View className="mt-10">
+            <View className="mb-3 flex-row items-center justify-between">
+              <NouText className={subheaderCls}>{t('settings.userStyles.scripts.label')}</NouText>
+              <Pressable
+                onPress={() => setScriptDraft(createScriptDraft())}
+                className="flex-row items-center gap-1 rounded-full bg-indigo-600/10 px-3 py-1.5 active:bg-indigo-600/20"
+              >
+                <MaterialIcons name="add" color="#818cf8" size={18} />
+                <NouText className="text-xs font-semibold text-indigo-400">{t('settings.userStyles.scripts.add')}</NouText>
+              </Pressable>
+            </View>
+            <View className={surfaceCls}>
+              {!hasScripts ? (
+                <View className="items-center justify-center px-6 py-10">
+                  <View className="h-12 w-12 items-center justify-center rounded-2xl bg-zinc-200 dark:bg-zinc-950">
+                    <MaterialIcons name="code" color="#3f3f46" size={24} />
+                  </View>
+                  <NouText className="mt-4 text-center text-sm leading-6 text-zinc-600 dark:text-zinc-500">
+                    {t('settings.userStyles.scripts.empty')}
+                  </NouText>
+                </View>
+              ) : null}
+              {customScripts.map((script, index) => (
+                <Pressable
+                  key={script.id}
+                  onPress={() => setScriptDraft(createScriptDraft(script))}
+                  className={clsx(
+                    rowCls,
+                    'flex-row items-center justify-between active:bg-zinc-200/50 dark:active:bg-zinc-800/50',
+                    index !== customScripts.length - 1 && rowBorderCls,
+                  )}
+                >
+                  <View className="flex-1 pr-4">
+                    <NouText className={clsx('font-medium', !script.enabled && 'text-zinc-500')} numberOfLines={1}>
+                      {script.name}
+                    </NouText>
+                  </View>
+                  {nIf(
+                    script.pinToHeader,
+                    <MaterialIcons
+                      name="push-pin"
+                      color={script.enabled ? '#818cf8' : '#71717a'}
+                      size={18}
+                      style={{ marginRight: 12 }}
+                    />,
+                  )}
+                  <Switch
+                    value={script.enabled}
+                    onValueChange={() => userStyles$.toggleCustomScript(script.id)}
+                    trackColor={{ false: '#27272a', true: '#3730a3' }}
+                    thumbColor={script.enabled ? '#818cf8' : '#71717a'}
+                    {...Platform.select({
+                      web: {
+                        activeThumbColor: '#818cf8',
+                      },
+                      ios: {
+                        style: { transform: [{ scale: 0.8 }] },
+                      },
+                    })}
+                  />
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        </>
+      )}
+
+      {draft ? (
+        isWeb ? (
+          <View className="pb-4">
+            <View>
+              <View className="flex-row items-center gap-3">
+                <View className="h-10 w-10 items-center justify-center rounded-xl bg-indigo-600/10">
+                  <MaterialIcons name="auto-fix-high" color="#818cf8" size={20} />
+                </View>
+                <NouText className="text-xl font-bold tracking-tight">
+                  {draft.id ? t('settings.userStyles.editTitle') : t('settings.userStyles.addTitle')}
+                </NouText>
+              </View>
+
+              <View className="mt-8">
+                <NouText className="mb-2 px-1 text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-600 dark:text-zinc-500">
+                  {t('settings.userStyles.nameLabel')}
+                </NouText>
+                <TextInput
+                  className={textInputCls}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  onChangeText={(name) => setDraft((value) => (value ? { ...value, name } : value))}
+                  placeholder={t('settings.userStyles.namePlaceholder')}
+                  placeholderTextColor="#71717a"
+                  value={draft.name}
+                />
+              </View>
+
+              <View className="mt-6">
+                <NouText className="mb-2 px-1 text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-600 dark:text-zinc-500">
+                  CSS
+                </NouText>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  className="rounded-2xl border border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-950"
+                >
+                  <TextInput
+                    className="min-h-[300px] p-4 text-xs text-zinc-900 dark:text-white"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    multiline
+                    onChangeText={(css) => setDraft((value) => (value ? { ...value, css } : value))}
+                    placeholder={`body {\n  font-size: 18px;\n}`}
+                    placeholderTextColor="#71717a"
+                    style={{
+                      textAlignVertical: 'top',
+                      fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+                      minWidth: 800,
+                    }}
+                    value={draft.css}
+                  />
+                </ScrollView>
+              </View>
+
+              <View className="mt-10 flex-row items-center justify-between gap-4">
+                <View className="flex-row items-center gap-2">
+                  <NouButton variant="outline" size="1" onPress={closeDraft}>
+                    {t('buttons.cancel')}
+                  </NouButton>
+                  <MaterialButton name="file-upload" size={20} onPress={onImportCss} />
+                  {draft.id ? (
+                    <MaterialButton
+                      name="delete-outline"
+                      size={20}
+                      color="#ef4444"
+                      onPress={() => {
+                        Alert.alert(t('menus.remove'), t('settings.userStyles.deleteConfirm'), [
+                          { text: t('buttons.cancel'), style: 'cancel' },
+                          {
+                            text: t('buttons.remove'),
+                            style: 'destructive',
+                            onPress: () => {
+                              userStyles$.deleteCustomStyle(draft.id!)
+                              closeDraft()
+                            },
+                          },
+                        ])
+                      }}
+                    />
+                  ) : null}
+                </View>
+                <NouButton onPress={onSave}>{t('buttons.save')}</NouButton>
+              </View>
+            </View>
+          </View>
+        ) : (
+          <BaseCenterModal onClose={closeDraft} containerClassName="lg:w-[50rem] xl:w-[60rem] max-w-[95vw]">
+            <ScrollView className="max-h-[80vh]">
+              <View className="p-6">
+                <View className="flex-row items-center gap-3">
+                  <View className="h-10 w-10 items-center justify-center rounded-xl bg-indigo-600/10">
+                    <MaterialIcons name="auto-fix-high" color="#818cf8" size={20} />
+                  </View>
+                  <NouText className="text-xl font-bold tracking-tight">
+                    {draft.id ? t('settings.userStyles.editTitle') : t('settings.userStyles.addTitle')}
+                  </NouText>
+                </View>
+
+                <View className="mt-8">
+                  <NouText className="mb-2 px-1 text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-600 dark:text-zinc-500">
+                    {t('settings.userStyles.nameLabel')}
+                  </NouText>
+                  <TextInput
+                    className={textInputCls}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    onChangeText={(name) => setDraft((value) => (value ? { ...value, name } : value))}
+                    placeholder={t('settings.userStyles.namePlaceholder')}
+                    placeholderTextColor="#71717a"
+                    value={draft.name}
+                  />
+                </View>
+
+                <View className="mt-6">
+                  <NouText className="mb-2 px-1 text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-600 dark:text-zinc-500">
+                    CSS
+                  </NouText>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    className="rounded-2xl border border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-950"
+                  >
+                    <TextInput
+                      className="min-h-[300px] p-4 text-xs text-zinc-900 dark:text-white"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      multiline
+                      onChangeText={(css) => setDraft((value) => (value ? { ...value, css } : value))}
+                      placeholder={`body {\n  font-size: 18px;\n}`}
+                      placeholderTextColor="#71717a"
+                      style={{
+                        textAlignVertical: 'top',
+                        fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+                        minWidth: 800,
+                      }}
+                      value={draft.css}
+                    />
+                  </ScrollView>
+                </View>
+
+                <View className="mt-10 flex-row items-center justify-between gap-4">
+                  <View className="flex-row items-center gap-2">
+                    <NouButton variant="outline" size="1" onPress={closeDraft}>
+                      {t('buttons.cancel')}
+                    </NouButton>
+                    <MaterialButton name="file-upload" size={20} onPress={onImportCss} />
+                    {draft.id ? (
+                      <MaterialButton
+                        name="delete-outline"
+                        size={20}
+                        color="#ef4444"
+                        onPress={() => {
+                          Alert.alert(t('menus.remove'), t('settings.userStyles.deleteConfirm'), [
+                            { text: t('buttons.cancel'), style: 'cancel' },
+                            {
+                              text: t('buttons.remove'),
+                              style: 'destructive',
+                              onPress: () => {
+                                userStyles$.deleteCustomStyle(draft.id!)
+                                closeDraft()
+                              },
+                            },
+                          ])
+                        }}
+                      />
+                    ) : null}
+                  </View>
+                  <NouButton onPress={onSave}>{t('buttons.save')}</NouButton>
+                </View>
+              </View>
+            </ScrollView>
+          </BaseCenterModal>
+        )
+      ) : null}
+
+      {scriptDraft ? (
+        isWeb ? (
+          <View className="pb-4">
+            <View>
+              <View className="flex-row items-center gap-3">
+                <View className="h-10 w-10 items-center justify-center rounded-xl bg-indigo-600/10">
+                  <MaterialIcons name="code" color="#818cf8" size={20} />
+                </View>
+                <NouText className="text-xl font-bold tracking-tight">
+                  {scriptDraft.id ? t('settings.userStyles.scripts.editTitle') : t('settings.userStyles.scripts.addTitle')}
+                </NouText>
+              </View>
+
+              <View className="mt-8">
+                <NouText className="mb-2 px-1 text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-600 dark:text-zinc-500">
+                  {t('settings.userStyles.nameLabel')}
+                </NouText>
+                <TextInput
+                  className={textInputCls}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  onChangeText={(name) => setScriptDraft((value) => (value ? { ...value, name } : value))}
+                  placeholder={t('settings.userStyles.scripts.namePlaceholder')}
+                  placeholderTextColor="#71717a"
+                  value={scriptDraft.name}
+                />
+              </View>
+
+              <View className="mt-6 flex-row items-center justify-between rounded-2xl border border-zinc-300 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-950 px-4 py-3">
+                <View className="flex-1 pr-4">
+                  <NouText className="font-medium">{t('settings.userStyles.scripts.pinToHeader')}</NouText>
+                  <NouText className="mt-1 text-xs text-zinc-600 dark:text-zinc-500">
+                    {t('settings.userStyles.scripts.pinToHeaderHint')}
+                  </NouText>
+                </View>
+                <Switch
+                  value={scriptDraft.pinToHeader}
+                  onValueChange={(pinToHeader) => setScriptDraft((value) => (value ? { ...value, pinToHeader } : value))}
+                  trackColor={{ false: '#27272a', true: '#3730a3' }}
+                  thumbColor={scriptDraft.pinToHeader ? '#818cf8' : '#71717a'}
+                  {...Platform.select({
+                    web: {
+                      activeThumbColor: '#818cf8',
+                    },
+                    ios: {
+                      style: { transform: [{ scale: 0.8 }] },
+                    },
+                  })}
+                />
+              </View>
+
+              <View className="mt-6">
+                <View className="mb-2 flex-row items-center justify-between px-1">
+                  <NouText className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-600 dark:text-zinc-500">
+                    JavaScript
+                  </NouText>
+                  <Pressable
+                    onPress={onRunScript}
+                    className="h-8 flex-row items-center gap-1.5 rounded-lg bg-indigo-600 px-3 active:bg-indigo-700"
+                  >
+                    <MaterialIcons name="play-arrow" color="white" size={16} />
+                    <NouText className="text-xs font-semibold" style={{ color: 'white' }}>
+                      {t('settings.userStyles.scripts.run')}
+                    </NouText>
+                  </Pressable>
+                </View>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  className="rounded-2xl border border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-950"
+                >
+                  <TextInput
+                    className="p-4 text-xs text-zinc-900 dark:text-white"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    multiline
+                    scrollEnabled
+                    onChangeText={(js) => setScriptDraft((value) => (value ? { ...value, js } : value))}
+                    placeholder={`document.title = 'noutube'`}
+                    placeholderTextColor="#71717a"
+                    style={{
+                      height: scriptEditorHeight,
+                      textAlignVertical: 'top',
+                      fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+                      minWidth: 800,
+                    }}
+                    value={scriptDraft.js}
+                  />
+                </ScrollView>
+              </View>
+
+              <View className="mt-10 flex-row items-center justify-between gap-4">
+                <View className="flex-row items-center gap-2">
+                  <NouButton variant="outline" size="1" onPress={closeScriptDraft}>
+                    {t('buttons.cancel')}
+                  </NouButton>
+                  <MaterialButton name="file-upload" size={20} onPress={onImportScript} />
+                  {scriptDraft.id ? (
+                    <MaterialButton
+                      name="delete-outline"
+                      size={20}
+                      color="#ef4444"
+                      onPress={() => {
+                        Alert.alert(t('menus.remove'), t('settings.userStyles.scripts.deleteConfirm'), [
+                          { text: t('buttons.cancel'), style: 'cancel' },
+                          {
+                            text: t('buttons.remove'),
+                            style: 'destructive',
+                            onPress: () => {
+                              userStyles$.deleteCustomScript(scriptDraft.id!)
+                              closeScriptDraft()
+                            },
+                          },
+                        ])
+                      }}
+                    />
+                  ) : null}
+                </View>
+                <NouButton onPress={onSaveScript}>{t('buttons.save')}</NouButton>
+              </View>
+            </View>
+          </View>
+        ) : (
+          <BaseCenterModal
+            onClose={closeScriptDraft}
+            keyboardAvoidingClassName={scriptKeyboardAvoidingClassName}
+            containerClassName="lg:w-[50rem] xl:w-[60rem] max-w-[95vw]"
+          >
+            <ScrollView
+              className="max-h-[80vh]"
+              keyboardDismissMode="interactive"
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ paddingBottom: keyboardHeight > 0 ? 16 : 0 }}
+            >
+              <View className="p-6">
+                <View className="flex-row items-center gap-3">
+                  <View className="h-10 w-10 items-center justify-center rounded-xl bg-indigo-600/10">
+                    <MaterialIcons name="code" color="#818cf8" size={20} />
+                  </View>
+                  <NouText className="text-xl font-bold tracking-tight">
+                    {scriptDraft.id ? t('settings.userStyles.scripts.editTitle') : t('settings.userStyles.scripts.addTitle')}
+                  </NouText>
+                </View>
+
+                <View className="mt-8">
+                  <NouText className="mb-2 px-1 text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-600 dark:text-zinc-500">
+                    {t('settings.userStyles.nameLabel')}
+                  </NouText>
+                  <TextInput
+                    className={textInputCls}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    onChangeText={(name) => setScriptDraft((value) => (value ? { ...value, name } : value))}
+                    placeholder={t('settings.userStyles.scripts.namePlaceholder')}
+                    placeholderTextColor="#71717a"
+                    value={scriptDraft.name}
+                  />
+                </View>
+
+                <View className="mt-6 flex-row items-center justify-between rounded-2xl border border-zinc-300 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-950 px-4 py-3">
+                  <View className="flex-1 pr-4">
+                    <NouText className="font-medium">{t('settings.userStyles.scripts.pinToHeader')}</NouText>
+                    <NouText className="mt-1 text-xs text-zinc-600 dark:text-zinc-500">
+                      {t('settings.userStyles.scripts.pinToHeaderHint')}
+                    </NouText>
+                  </View>
+                  <Switch
+                    value={scriptDraft.pinToHeader}
+                    onValueChange={(pinToHeader) => setScriptDraft((value) => (value ? { ...value, pinToHeader } : value))}
+                    trackColor={{ false: '#27272a', true: '#3730a3' }}
+                    thumbColor={scriptDraft.pinToHeader ? '#818cf8' : '#71717a'}
+                    {...Platform.select({
+                      web: {
+                        activeThumbColor: '#818cf8',
+                      },
+                      ios: {
+                        style: { transform: [{ scale: 0.8 }] },
+                      },
+                    })}
+                  />
+                </View>
+
+                <View className="mt-6">
+                  <View className="mb-2 flex-row items-center justify-between px-1">
+                    <NouText className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-600 dark:text-zinc-500">
+                      JavaScript
+                    </NouText>
+                    <Pressable
+                      onPress={onRunScript}
+                      className="h-8 flex-row items-center gap-1.5 rounded-lg bg-indigo-600 px-3 active:bg-indigo-700"
+                    >
+                      <MaterialIcons name="play-arrow" color="white" size={16} />
+                      <NouText className="text-xs font-semibold" style={{ color: 'white' }}>
+                        {t('settings.userStyles.scripts.run')}
+                      </NouText>
+                    </Pressable>
+                  </View>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    className="rounded-2xl border border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-950"
+                  >
+                    <TextInput
+                      className="p-4 text-xs text-zinc-900 dark:text-white"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      multiline
+                      scrollEnabled
+                      onChangeText={(js) => setScriptDraft((value) => (value ? { ...value, js } : value))}
+                      placeholder={`document.title = 'noutube'`}
+                      placeholderTextColor="#71717a"
+                      style={{
+                        height: scriptEditorHeight,
+                        textAlignVertical: 'top',
+                        fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+                        minWidth: 800,
+                      }}
+                      value={scriptDraft.js}
+                    />
+                  </ScrollView>
+                </View>
+
+                <View className="mt-10 flex-row items-center justify-between gap-4">
+                  <View className="flex-row items-center gap-2">
+                    <NouButton variant="outline" size="1" onPress={closeScriptDraft}>
+                      {t('buttons.cancel')}
+                    </NouButton>
+                    <MaterialButton name="file-upload" size={20} onPress={onImportScript} />
+                    {scriptDraft.id ? (
+                      <MaterialButton
+                        name="delete-outline"
+                        size={20}
+                        color="#ef4444"
+                        onPress={() => {
+                          Alert.alert(t('menus.remove'), t('settings.userStyles.scripts.deleteConfirm'), [
+                            { text: t('buttons.cancel'), style: 'cancel' },
+                            {
+                              text: t('buttons.remove'),
+                              style: 'destructive',
+                              onPress: () => {
+                                userStyles$.deleteCustomScript(scriptDraft.id!)
+                                closeScriptDraft()
+                              },
+                            },
+                          ])
+                        }}
+                      />
+                    ) : null}
+                  </View>
+                  <NouButton onPress={onSaveScript}>{t('buttons.save')}</NouButton>
+                </View>
+              </View>
+            </ScrollView>
+          </BaseCenterModal>
+        )
+      ) : null}
+
+      {previewDefinition ? (
+        <BaseCenterModal
+          onClose={() => setPreviewBuiltinId(null)}
+          containerClassName="lg:w-[50rem] xl:w-[60rem] max-w-[95vw]"
+        >
+          <View className="p-6">
+            <View className="flex-row items-center gap-3">
+              <View className="h-10 w-10 items-center justify-center rounded-xl bg-zinc-200 dark:bg-zinc-950">
+                <MaterialIcons name="code" color="#818cf8" size={20} />
+              </View>
+              <View className="flex-1">
+                <NouText className="text-lg font-bold">{t(previewDefinition.labelKey)}</NouText>
+              </View>
+            </View>
+
+            <View className="mt-6 overflow-hidden rounded-2xl border border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+              <ScrollView className="max-h-[400px]" showsVerticalScrollIndicator={false}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View className="items-start p-4">
+                    <NouText
+                      className="font-mono text-[11px] leading-5 text-indigo-700 dark:text-indigo-300"
+                      style={{ fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }}
+                    >
+                      {cleanCss(previewDefinition.css)}
+                    </NouText>
+                  </View>
+                </ScrollView>
+              </ScrollView>
+            </View>
+
+            <View className="mt-6 flex-row items-center justify-end gap-3">
+              <NouButton variant="outline" size="1" onPress={() => setPreviewBuiltinId(null)}>
+                {t('buttons.cancel')}
+              </NouButton>
+              <NouButton onPress={onCopyBuiltinCss}>
+                <MaterialIcons name="content-copy" color="white" size={16} />
+                {t('settings.userStyles.copyCss')}
+              </NouButton>
+            </View>
+          </View>
+        </BaseCenterModal>
+      ) : null}
+    </View>
+  )
+}

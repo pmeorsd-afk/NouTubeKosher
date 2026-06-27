@@ -1,0 +1,321 @@
+{
+  "about": {
+    "label": "About",
+    "code": "Source code",
+    "donate": "Donate",
+    "updates": "Updates",
+    "hint": "Version info, updates, source code, and support links."
+  },
+  "changelog": {
+    "label": "Changelog",
+    "hint": "Recent releases and fixes from GitHub.",
+    "loading": "Loading release notes...",
+    "error": "Failed to load release notes.",
+    "retry": "Retry",
+    "empty": "No release notes found.",
+    "current": "Current",
+    "noNotes": "No release notes were provided for this version."
+  },
+  "buttons": {
+    "clear": "Clear",
+    "clearAll": "Clear all",
+    "import": "Import",
+    "export": "Export",
+    "open": "Open",
+    "cancel": "Cancel",
+    "openUrl": "Open URL",
+    "move": "Move",
+    "save": "Save",
+    "remove": "Remove",
+    "unsubscribe": "Unsubscribe",
+    "signOut": "Sign out",
+    "next": "Next",
+    "show": "Show",
+    "download": "Download",
+    "browse": "Browse",
+    "updateYtDlp": "Update yt-dlp",
+    "updating": "Updating...",
+    "ytDlpUpdated": "yt-dlp is up to date"
+  },
+  "library": {
+    "videos": "Videos",
+    "channels": "Channels",
+    "playlists": "Playlists",
+    "songs": "Songs",
+    "artists": "Artists"
+  },
+  "menus": {
+    "openInNewTab": "Open in New Tab",
+    "edit": "Edit",
+    "remove": "Remove",
+    "unsubscribe": "Unsubscribe",
+    "reload": "Reload",
+    "share": "Share",
+    "pip": "Picture-in-Picture",
+    "duplicateTab": "Duplicate Tab",
+    "close": "Close",
+    "tools": "Tools",
+    "desktop": "Desktop site",
+    "on": "On",
+    "off": "Off"
+  },
+  "modals": {
+    "editBookmark": "Edit bookmark",
+    "title": "Title",
+    "folder": "Folder",
+    "ungrouped": "Ungrouped",
+    "feeds": "Feeds",
+    "history": "History",
+    "queue": "Queue",
+    "downloadVideo": "Download video",
+    "downloadsFolder": "Downloads folder",
+    "activeDownloads": "Active Downloads",
+    "downloadHistory": "Download History",
+    "starting": "Starting...",
+    "downloadComplete": "Download complete",
+    "downloadFailed": "Download failed",
+    "failedToLoadFormats": "Failed to load formats",
+    "playbackSpeed": "Playback speed",
+    "playbackQuality": "Playback quality"
+  },
+  "update": {
+    "check": "Check for updates",
+    "checkHint": "See if a newer version is available",
+    "upToDate": "You're on the latest version",
+    "downloading": "Downloading update v{{version}}…",
+    "error": "Failed to check for updates",
+    "downloadedTitle": "Update ready",
+    "downloadedHint": "Version {{version}} has been downloaded. Restart now to install?"
+  },
+  "sleepTimer": {
+    "label": "Sleep timer",
+    "hint": "Pause playback after a preset duration or your own minute value.",
+    "activeHint": "Playback will pause after this countdown ends.",
+    "off": "Off",
+    "endsIn": "Ends in {{value}}",
+    "preset": "{{value}} min",
+    "customPlaceholder": "Custom minutes",
+    "set": "Set timer",
+    "cancel": "Cancel timer",
+    "replace": "Replace",
+    "validation": {
+      "minutes": "Enter a whole number of minutes from 1 to 1440"
+    },
+    "setToast": "Sleep timer set for {{value}} minutes",
+    "cancelToast": "Sleep timer canceled",
+    "expiredToast": "Sleep timer expired"
+  },
+  "feeds": {
+    "updates": "Updates",
+    "manage": "Manage",
+    "sortLastVideo": "Last video",
+    "sortFrequency": "Frequency",
+    "lastVideoNewest": "Last video: newest first",
+    "lastVideoOldest": "Last video: oldest first",
+    "frequencyHighest": "Frequency: highest first",
+    "frequencyLowest": "Frequency: lowest first",
+    "frequencyLabel": "Frequency",
+    "lastVideoLabel": "Last video",
+    "videosPerDay": "{{value}} videos/day",
+    "never": "Never",
+    "allFolders": "All",
+    "newFolder": "+ New folder",
+    "editFeed": "Edit feed",
+    "manageEmpty": "No saved feeds yet.",
+    "manageNoResults": "No feeds match the current filters.",
+    "updatesEmpty": "No feed videos match the current folder filter.",
+    "filterDropdownPlaceholder": "Filter folders and channels",
+    "filterDropdownEmpty": "No folders or channels match.",
+    "emptyTitleNoChannels": "No starred channels",
+    "emptyBodyNoChannels": "Updates from starred YouTube channels will show up here.",
+    "emptyTitleFolder": "No updates in {{folder}}",
+    "emptyTitleChannel": "No updates from {{channel}}",
+    "emptyBodyFiltered": "There are no recent videos here right now. Check back later or switch to All.",
+    "emptyActionFetchNow": "Fetch now",
+    "fetchToastSuccess": "Feed refreshed",
+    "fetchToastRunning": "Refresh already in progress",
+    "fetchToastNotFound": "Could not refresh this channel. Feed returned 404.",
+    "fetchToastError": "Could not refresh this channel",
+    "emptyActionAllFolders": "Show all",
+    "emptyTitleWaiting": "Waiting for feed updates",
+    "emptyBodyWaiting": "Your saved channels are ready. Keep the app open for a bit or reopen later, and recent uploads will appear here.",
+    "removeTitle": "Remove {{title}}?",
+    "removeMessage": "This removes the channel from Library and clears its feed videos."
+  },
+  "settings": {
+    "label": "Settings",
+    "hubHint": "Playback, sync, imports, and webview tools in one place.",
+    "general": "General",
+    "generalHint": "Playback defaults, appearance, tools, and data transfer.",
+    "preferences": "Preferences",
+    "preferencesHint": "Playback, feed, and history behavior.",
+    "preferencesContent": "Content",
+    "preferencesPlayback": "Playback & display",
+    "preferencesGeneral": "General",
+    "zoom": {
+      "label": "Text zoom",
+      "defaultLabel": "Text zoom",
+      "defaultHint": "Adjust the text size of YouTube web pages."
+    },
+    "appearance": "Appearance",
+    "appearanceHint": "Control how YouTube looks inside the app.",
+    "tools": "Tools",
+    "toolsHint": "Manage the webview environment and other tools.",
+    "transfer": "Import & export",
+    "transferHint": "Bring bookmarks in or take them with you.",
+    "syncHintShort": "Account, plan, and device sync.",
+    "restoreOnStart": "Restore last session on start",
+    "pullToRefresh": "Pull to refresh",
+    "proxy": {
+      "label": "Proxy",
+      "enabled": "Enable proxy",
+      "type": "Proxy type",
+      "host": "Proxy host",
+      "port": "Proxy port",
+      "hostPlaceholder": "e.g. 127.0.0.1 or proxy.example.com",
+      "portPlaceholder": "e.g. 1080"
+    },
+    "autoHideHeader": "Hide and show toolbar on scroll direction",
+    "autoHideSidebar": "Auto-hide sidebar and show on hover",
+    "hideToolbarWhenScrolled": "Hide toolbar when page is not at top",
+    "headerPosition": {
+      "label": "Toolbar position",
+      "top": "Top",
+      "bottom": "Bottom"
+    },
+    "showHomeButtonInHeader": "Show Home button in toolbar",
+    "showBackButtonInHeader": "Show Back button in toolbar",
+    "showForwardButtonInHeader": "Show Forward button in toolbar",
+    "showReloadButtonInHeader": "Show Reload button in toolbar",
+    "hideShorts": "Hide shorts in timeline",
+    "hideShortsInNavbar": "Hide shorts in navbar",
+    "hideMixPlaylist": "Hide mix playlist",
+    "miniPlayer": "YouTube mini player",
+    "preferH264": "Prefer H.264 (block VP9/AV1)",
+    "showDislikes": "Show dislikes",
+    "showOriginalVideoTitle": "Show original video title",
+    "clickbaitThumbnail": {
+      "label": "Avoid clickbait thumbnails",
+      "hint": "Replace creator thumbnails with auto-generated video frames",
+      "optionDefault": "Default",
+      "optionFrame": "Frame {{n}}"
+    },
+    "blocklist": {
+      "label": "Blocklist",
+      "hint": "Hide YouTube videos by channel or title keyword.",
+      "channels": "Channels",
+      "keywords": "Keywords",
+      "channelPlaceholder": "Channel name, handle, or URL",
+      "keywordPlaceholder": "Title keyword",
+      "emptyChannels": "No blocked channels yet.",
+      "emptyKeywords": "No blocked keywords yet.",
+      "add": "Add",
+      "channelsNote": "Channels match exactly by name, handle, or channel ID.",
+      "keywordsNote": "Keywords match by inclusion (substring search in titles)."
+    },
+    "userStyles": {
+      "label": "User Styles & Scripts",
+      "hint": "Built-in CSS tweaks and your own site-specific CSS.",
+      "builtin": {
+        "label": "Built-in styles",
+        "hideShortsInNavbar": {
+          "label": "Hide Shorts in navbar"
+        },
+        "hideMixPlaylist": {
+          "label": "Hide mix playlist"
+        },
+        "hideCommunityPosts": {
+          "label": "Hide community posts"
+        }
+      },
+      "custom": {
+        "label": "Custom styles",
+        "empty": "No custom styles yet."
+      },
+      "add": "Add style",
+      "addTitle": "Add user style",
+      "editTitle": "Edit user style",
+      "nameLabel": "Name",
+      "namePlaceholder": "My style",
+      "validation": {
+        "css": "CSS cannot be empty"
+      },
+      "deleteConfirm": "Remove this custom style?",
+      "copyCss": "Copy CSS",
+      "cssCopied": "CSS copied",
+      "copyFailed": "Failed to copy CSS",
+      "importFailed": "Failed to import CSS",
+      "scripts": {
+        "label": "Custom scripts",
+        "empty": "No custom scripts yet.",
+        "add": "Add script",
+        "addTitle": "Add user script",
+        "editTitle": "Edit user script",
+        "namePlaceholder": "My script",
+        "run": "Run",
+        "runComplete": "Script ran",
+        "runFailed": "Script failed",
+        "import": "Import",
+        "importFailed": "Failed to import script",
+        "pinToHeader": "Pin to toolbar",
+        "pinToHeaderHint": "Show this script as a toolbar action.",
+        "pinnedToHeader": "Pinned to toolbar",
+        "deleteConfirm": "Remove this custom script?",
+        "noActiveTab": "No active webview",
+        "validation": {
+          "js": "JavaScript cannot be empty"
+        }
+      }
+    },
+    "channelsFeed": "Channels feed",
+    "watchHistory": "Watch history",
+    "theme": {
+      "label": "YouTube Theme",
+      "system": "System",
+      "dark": "Dark",
+      "light": "Light",
+      "hint": "Restart manually if change not reflected in webview."
+    },
+    "language": {
+      "label": "Language",
+      "system": "System",
+      "hint": "Choose a language or follow system language."
+    },
+    "login": {
+      "label": "Try this if couldn't login from webview",
+      "button": "Login YouTube"
+    },
+    "openUrlLabel": "Open supported URL directly",
+    "webview": {
+      "clearLabel": "Clear webview data"
+    },
+    "userAgent": {
+      "title": "Custom user agent",
+      "default": "Default user agent"
+    },
+    "importList": "Import a list of links",
+    "importTakeout": "Import from YouTube takeout",
+    "exportLabel": "Export bookmarks to a list",
+    "injectCookie": "Inject cookie if couldn't login from webview",
+    "injectCookieTitle": "Inject auth cookie into the webview",
+    "injectCookieHint": "Copy the Cookie header value from your PC browser. This is a workaround when you couldn't login with email/password."
+  },
+  "native": {
+    "format_bestQuality": "Best quality",
+    "format_bestQualityDesc": "Up to {{height}}p video + audio",
+    "format_1080pDesc": "1080p video + audio",
+    "format_720pDesc": "720p video + audio",
+    "format_audioOnly": "Audio only",
+    "format_audio": "Audio ({{ext}})",
+    "format_audioStreamDesc": "Best audio stream",
+    "format_audioMp3Desc": "Best audio transcoded to MP3",
+    "download_complete": "Download complete",
+    "download_failed": "Download failed"
+  },
+  "sync": {
+    "label": "Sync",
+    "hint": "Sync bookmarks across your phones and computers as a premium user.",
+    "currentPlan": "Current plan",
+    "managePlan": "Manage plan"
+  }
+}

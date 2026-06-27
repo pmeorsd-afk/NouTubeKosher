@@ -1,0 +1,117 @@
+package expo.modules.noutubeview
+
+import android.os.SystemClock
+import expo.modules.kotlin.records.Field
+import expo.modules.kotlin.records.Record
+
+typealias LogFn = (String) -> Unit
+typealias SleepTimerEventFn = (Map<String, Any?>) -> Unit
+
+private const val SLEEP_TIMER_REASON_SET = "set"
+private const val SLEEP_TIMER_REASON_CLEAR = "clear"
+private const val SLEEP_TIMER_REASON_EXPIRED = "expired"
+
+class NouSettings : Record {
+  @Field
+  val proxyEnabled: Boolean = false
+
+  @Field
+  val proxyType: String = "http"
+
+  @Field
+  val proxyHost: String = ""
+
+  @Field
+  val proxyPort: String = ""
+}
+
+class NouController {
+  internal var service: NouService? = null
+  internal var logFn: LogFn? = null
+  internal var sleepTimerEventFn: SleepTimerEventFn? = null
+  internal var i18nStrings = mutableMapOf<String, String>()
+  private var pendingSleepTimerDeadlineMs: Long? = null
+  private var hasPendingSleepTimerChange = false
+
+  fun log(msg: String) {
+    logFn?.invoke(msg)
+  }
+
+  fun t(key: String): String {
+    return i18nStrings[key] ?: "Missed translation: $key"
+  }
+
+  fun setSleepTimer(durationMs: Long) {
+    val nextDeadlineMs = SystemClock.elapsedRealtime() + durationMs
+    val currentService = service
+    if (currentService != null) {
+      currentService.setSleepTimerDeadline(nextDeadlineMs)
+      return
+    }
+    pendingSleepTimerDeadlineMs = nextDeadlineMs
+    hasPendingSleepTimerChange = true
+  }
+
+  fun clearSleepTimer() {
+    val currentService = service
+    if (currentService != null) {
+      currentService.clearSleepTimer(false)
+      return
+    }
+    pendingSleepTimerDeadlineMs = null
+    hasPendingSleepTimerChange = true
+  }
+
+  fun getSleepTimerRemainingMs(): Long? {
+    val currentService = service
+    if (currentService != null) {
+      return currentService.getSleepTimerRemainingMs()
+    }
+
+    val pendingDeadlineMs = pendingSleepTimerDeadlineMs ?: return null
+    return maxOf(0L, pendingDeadlineMs - SystemClock.elapsedRealtime())
+  }
+
+  fun applyPendingSleepTimer() {
+    if (!hasPendingSleepTimerChange) {
+      return
+    }
+
+    val currentService = service ?: return
+    hasPendingSleepTimerChange = false
+    val pendingDeadlineMs = pendingSleepTimerDeadlineMs
+    pendingSleepTimerDeadlineMs = null
+    if (pendingDeadlineMs != null) {
+      currentService.setSleepTimerDeadline(pendingDeadlineMs)
+    } else {
+      currentService.clearSleepTimer(false)
+    }
+  }
+
+  fun emitSleepTimer(remainingMs: Long?, reason: String) {
+    sleepTimerEventFn?.invoke(
+      mapOf(
+        "remainingMs" to remainingMs,
+        "reason" to reason,
+      ),
+    )
+  }
+
+  fun emitSleepTimerSet(remainingMs: Long?) {
+    emitSleepTimer(remainingMs, SLEEP_TIMER_REASON_SET)
+  }
+
+  fun emitSleepTimerCleared() {
+    emitSleepTimer(null, SLEEP_TIMER_REASON_CLEAR)
+  }
+
+  fun emitSleepTimerExpired() {
+    emitSleepTimer(null, SLEEP_TIMER_REASON_EXPIRED)
+  }
+
+  fun exit() {
+    service?.exit()
+  }
+}
+
+val nouController = NouController()
