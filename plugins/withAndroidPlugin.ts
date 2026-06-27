@@ -10,8 +10,7 @@ const withAndroidSigningConfig: ConfigPlugin = (config) => {
     return config
   })
 
-  // Bump JVM memory: release builds run out of the default 512m Metaspace on
-  // CI, failing :app:packageRelease. See workflow run 27182763983.
+  // Bump JVM memory and set minify/shrink options
   config = withGradleProperties(config, (config) => {
     const value = '-Xmx4g -XX:MaxMetaspaceSize=2g'
     const existing = config.modResults.find(
@@ -23,6 +22,29 @@ const withAndroidSigningConfig: ConfigPlugin = (config) => {
     } else {
       config.modResults.push({ type: 'property', key: 'org.gradle.jvmargs', value })
     }
+
+    // Enable minify in release
+    const existingMinify = config.modResults.find(
+      (item): item is { type: 'property'; key: string; value: string } =>
+        item.type === 'property' && item.key === 'android.enableMinifyInReleaseBuilds',
+    )
+    if (existingMinify) {
+      existingMinify.value = 'true'
+    } else {
+      config.modResults.push({ type: 'property', key: 'android.enableMinifyInReleaseBuilds', value: 'true' })
+    }
+
+    // Enable shrink resources in release
+    const existingShrink = config.modResults.find(
+      (item): item is { type: 'property'; key: string; value: string } =>
+        item.type === 'property' && item.key === 'android.enableShrinkResourcesInReleaseBuilds',
+    )
+    if (existingShrink) {
+      existingShrink.value = 'true'
+    } else {
+      config.modResults.push({ type: 'property', key: 'android.enableShrinkResourcesInReleaseBuilds', value: 'true' })
+    }
+
     return config
   })
 
@@ -32,16 +54,12 @@ const withAndroidSigningConfig: ConfigPlugin = (config) => {
       .replace(
         'android {',
         `ext.abiCodes = [x86:1, x86_64:2, 'armeabi-v7a':3, 'arm64-v8a': 4]
-
+ 
 android {`,
       )
       .replace('zh-Hans', 'b+zh+Hans')
       .replace('zh-Hant', 'b+zh+Hant')
       .replace('pt-BR', 'b+pt+BR')
-      .replace(
-        /buildTypes \{([\s\S]*?)release \{([\s\S]*?)signingConfig signingConfigs\.debug/,
-        `buildTypes {$1release { `,
-      )
       .replace(
         /androidResources \{([\s\S]*?)}/,
         `androidResources {$1}
