@@ -17,7 +17,7 @@ const intentFilters = [
 
 module.exports = ({ config }: { config: ExpoConfig }) => {
   return {
-    name: 'NouTube',
+    name: 'NouTube Kosher',
     slug: 'noutube',
     version,
     icon: './assets/images/icon.png',
@@ -26,7 +26,7 @@ module.exports = ({ config }: { config: ExpoConfig }) => {
     newArchEnabled: true,
     ios: {
       supportsTablet: true,
-      bundleIdentifier: 'jp.nonbili.noutube',
+      bundleIdentifier: 'jp.nonbili.noutube.kosher',
     },
     android: {
       versionCode,
@@ -37,7 +37,7 @@ module.exports = ({ config }: { config: ExpoConfig }) => {
         backgroundColor: '#ffffff',
       },
       predictiveBackGestureEnabled: false,
-      package: 'jp.nonbili.noutube',
+      package: 'jp.nonbili.noutube.kosher',
       intentFilters,
     },
     web: {

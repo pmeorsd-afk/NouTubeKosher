@@ -12,12 +12,8 @@ import { pinchToZoom } from './pinch'
 import { enterMini, exitMini, getMiniCurrentTime, installMiniPlayerInterceptor } from './mini-player'
 import { installBlocklistFilter } from './blocklist'
 import { installDislikeCount } from './dislikes'
-import { installKosherMode } from './kosher'
 
 try {
-  // Kosher mode is always on — hide video, thumbnails, avatars; keep audio.
-  installKosherMode()
-
   if ((window as any).NouTubePreferH264) {
     installH264ify()
   }
